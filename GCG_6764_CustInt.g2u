@@ -1,0 +1,576 @@
+﻿Program.Sub.ScreenSU.Start
+Gui.frmcmpy..Create(BaseForm)
+Gui.frmcmpy..Caption("Company list")
+Gui.frmcmpy..Size(15360,10800)
+Gui.frmcmpy..MinX(0)
+Gui.frmcmpy..MinY(0)
+Gui.frmcmpy..Position(0,0)
+Gui.frmcmpy..AlwaysOnTop(False)
+Gui.frmcmpy..FontName("Tahoma")
+Gui.frmcmpy..FontSize(8.25)
+Gui.frmcmpy..ControlBox(True)
+Gui.frmcmpy..MaxButton(False)
+Gui.frmcmpy..MinButton(True)
+Gui.frmcmpy..MousePointer(0)
+Gui.frmcmpy..Moveable(True)
+Gui.frmcmpy..Sizeable(True)
+Gui.frmcmpy..ShowInTaskBar(True)
+Gui.frmcmpy..TitleBar(True)
+Gui.frmcmpy..Event(UnLoad,frmcmpy_UnLoad)
+Gui.frmcmpy.GsGrid.Create(GsGridControl)
+Gui.frmcmpy.GsGrid.Enabled(True)
+Gui.frmcmpy.GsGrid.Visible(True)
+Gui.frmcmpy.GsGrid.Zorder(0)
+Gui.frmcmpy.GsGrid.Size(14865,9525)
+Gui.frmcmpy.GsGrid.Position(255,555)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+	v.Global.dRet.Declare
+	v.Global.sHSConn.Declare(string,"")
+	v.Global.dTime.Declare
+	v.Global.sRet.Declare
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+f.Intrinsic.Control.Try
+	'Make sHSConn an array
+	
+'	v.local.sTime.Declare
+
+	v.Global.lNextCust.Declare
+	v.Global.sHSConn.Redim(0,1)
+'	'Connect to Hubspot
+
+	f.Intrinsic.UI.InvokeWaitDialog("Hubspot Inegration in Progress","Export")
+
+	f.Intrinsic.Control.CallSub(HubspotConnect)
+'	'Connect to GSS
+	f.ODBC.Connection!con.opencompanyconnection(600)
+
+'Function.Intrinsic.Debug.InvokeDebugger
+'Function.Intrinsic.Debug.Stop
+	
+'	f.Intrinsic.Control.CallSub(Update_GSSNO)
+'	f.Intrinsic.Control.end
+	
+	f.Intrinsic.Control.CallSub(Get_Data)
+	gui.frmcmpy..Show
+	
+	f.Intrinsic.UI.CloseWaitDialog
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.HubspotConnect.Start
+	f.Intrinsic.Control.Try
+	v.Local.sErrorLogFile.Declare
+	v.Local.sDate.Declare
+	v.Local.sTime.Declare
+	v.Local.sConnStr.Declare
+	v.Local.sError.Declare
+	v.Local.sFile.declare
+
+	'Set the error log file path to the CUSTOM folder
+	f.Intrinsic.String.DateString(v.Ambient.Date,v.Local.sDate)
+	f.Intrinsic.String.TimeStringSec(v.Ambient.Time,v.Local.sTime)
+	f.Intrinsic.String.Build("{0}\CUSTOM\6764\HubspotLogFile_{1}_{2}.txt",v.Caller.GlobalDir,v.Local.sDate,v.Local.sTime,v.Local.sErrorLogFile)
+	f.Intrinsic.Control.CallSub(Hubspot_ReadSettings)
+
+	f.Intrinsic.Control.If(v.Args.HubspotSetting,=,True)
+		Function.Automation.HubSpot.SetLoginInfo(v.Global.sHSConn(1),v.Global.sHSConn(2),"GetAndRefresh")
+		Function.Automation.HubSpot.SetConnectionString
+	
+	f.Intrinsic.Control.else	'Write error log
+		'Generic Error message.
+		f.Intrinsic.String.Build("Project GCG_6764_CustInt.g2u {0}{0}Subroutine: HubspotConnect{0}Error: Hubspot settings file does not exist.  Please re-initiate the connection to Hubspot for this Windows user and try again.", v.Ambient.NewLine, v.Local.sError)
+		
+		'Build file location
+		f.Intrinsic.String.Build("{0}\CUSTOM\6764\ErrorLog.txt",v.Caller.GlobalDir,v.Local.sFile)
+		
+		'Generate file
+		f.Intrinsic.File.String2File(v.Local.sFile,v.Local.sError)
+		
+		'End program
+		f.Intrinsic.Control.End
+	f.Intrinsic.Control.endif
+	
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry
+Program.Sub.HubspotConnect.End
+
+Program.Sub.Hubspot_ReadSettings.Start
+f.Intrinsic.Control.Try
+v.local.sRet.Declare
+v.Local.sFilname.Declare
+v.local.bRet.Declare
+V.Local.iFile.Declare
+V.Local.sText.Declare
+v.Local.sSql.Declare
+v.Local.i.Declare
+v.Local.bExt.Declare
+
+	f.Intrinsic.String.Build("{0}\Custom\6764\Hotspotsettings.new",v.Caller.GlobalDir,v.local.sFilname)
+	Function.Intrinsic.File.Exists(V.Local.sFilname,v.local.bRet)
+	f.Intrinsic.Control.If(v.local.bRet,=,True)
+		F.Intrinsic.File.GetHandle(V.Local.iFile)
+		F.Intrinsic.File.OpenForRead(V.Local.sFilname,V.Local.iFile)
+		F.Intrinsic.File.ReadFile(V.Local.iFile,V.Local.sText)
+		f.Intrinsic.File.CloseFile(V.Local.iFile)
+		f.Intrinsic.String.Split(V.Local.sText,"!*!",V.global.sHSConn)
+		
+		f.Intrinsic.Variable.AddRV("HubspotSetting",True)
+	f.Intrinsic.Control.Else
+		f.Intrinsic.Variable.AddRV("HubspotSetting",False)
+	f.Intrinsic.Control.EndIf
+
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+	f.Intrinsic.Control.EndTry
+
+Program.Sub.Hubspot_ReadSettings.End
+
+
+
+Program.Sub.SendPartsToHubspot.Start
+	f.Intrinsic.Control.Try
+		v.Local.sSQL.Declare
+		v.Local.sFilter.Declare
+		v.Local.iCnt.Declare
+		v.Local.sDescription.Declare
+		v.Local.spart.Declare
+		
+		'Get parts recently updated in GSS
+'		f.Intrinsic.String.Build("select a.part, a.amt_price, b.text as Extra_Desc, a.description from v_inventory_mstr a left join v_inv_extra_text b on a.part=b.part where Extra_Desc <> '' and date_last_chg >= '{0}' and product_line in ('13','14','15','52','BC','RC','FC','HC','GB','OC','GC','AC','WP','RR','BS','RS','FS','HS','OS','GS','AS','LC','LS','SR','SK','SS','SI','SP','ST','SM')",v.Global.dRet.PervasiveDate,v.Local.sSQL)
+		
+		
+		f.Intrinsic.String.Build("select a.part, a.amt_price, b.text as Extra_Desc, a.description from v_inventory_mstr a left join v_inv_extra_text b on a.part=b.part where date_last_chg >= '{0}' and time_Last_CHG >= '{1}' and product_line in ('13','14','15','52','BC','RC','FC','HC','GB','OC','GC','AC','WP','RR','BS','RS','FS','HS','OS','GS','AS','LC','LS','SR','SK','SS','SI','SP','ST','SM')",v.Global.dRet.PervasiveDate,v.Global.sRet,v.Local.sSQL)
+
+		f.Data.DataTable.CreateFromSQL("dtParts","con",v.Local.sSQL)
+		
+		'Check if part exists in Hubspot.  Determines if we run an insert or update.
+		Function.Automation.HubSpot.SelectToDatatable("dtHS","True","select * from products")
+		f.Data.DataView.Create("dtHS","dvHS",22)
+		
+		'Loop through dtParts and see if each part exists in Hubspot already.  Insert or update from there.
+		f.Intrinsic.Control.For(v.Local.iCnt,0,v.DataTable.dtParts.RowCount--,1)
+			'Determine description source here
+			f.Intrinsic.Control.If(v.DataTable.dtParts(v.Local.iCnt).Extra_Desc!FieldVal,<>,"")
+				v.Local.sDescription.Set(v.DataTable.dtParts(v.Local.iCnt).Extra_Desc!FieldVal)
+			f.Intrinsic.Control.Else
+				v.Local.sDescription.Set(v.DataTable.dtParts(v.Local.iCnt).description!FieldVal)
+			f.Intrinsic.Control.EndIf
+			v.Local.spart.Set(v.DataTable.dtParts(v.Local.iCnt).Part!FieldVal)
+			f.Intrinsic.String.Build("Name='{0}'",v.DataTable.dtParts(v.Local.iCnt).Part!FieldVal,v.Local.sFilter)
+			f.Data.DataView.SetFilter("dtHS","dvHS",v.Local.sFilter)
+			f.Intrinsic.Control.If(v.DataView.dths!dvHS.RowCount,>,0)
+'				f.Intrinsic.String.Build("update Products set Price={0}, Description='{1}' where Name='{2}'",v.DataTable.dtParts(v.Local.iCnt).Amt_Price!FieldVal,v.Local.sDescription,v.DataTable.dtParts(v.Local.iCnt).Part!FieldVal,v.Local.sSQL)
+				'f.Intrinsic.String.Build("DELETE FROM Products where Name='{0}'",v.DataTable.dtParts(v.Local.iCnt).Part!FieldVal,v.Local.sSQL)
+				
+'				f.Intrinsic.String.Build("update Products set Price={0}, Description='{1}' where Name='{2}'",v.DataTable.dtParts(v.Local.iCnt).Amt_Price!FieldVal,v.Local.sDescription,v.DataTable.dtParts(v.Local.iCnt).Part!FieldVal,v.Local.sSQL)
+				
+				
+				f.Intrinsic.String.Build("update Products set Price={0}, Description='{1}' where Id ={2}",v.DataTable.dtParts(v.Local.iCnt).Amt_Price!FieldVal,v.Local.sDescription.PSQLFriendly,V.DataView.dths!dvHS(0).ID!Fieldval,v.Local.sSQL)
+		
+				f.Automation.hubspot.ExecuteSQL(v.Local.sSQL)
+			f.Intrinsic.Control.Else
+				f.Intrinsic.String.Build("insert into Products (Price, Description, Name) values ({0},'{1}','{2}')",v.DataTable.dtParts(v.Local.iCnt).Amt_Price!FieldVal,v.Local.sDescription.PSQLFriendly,v.Local.spart.PSQLFriendly,v.Local.sSQL)
+				f.Automation.hubspot.ExecuteSQL(v.Local.sSQL)
+			f.Intrinsic.Control.EndIf
+				
+		f.Intrinsic.Control.Next(v.Local.iCnt)
+		
+'		f.Intrinsic.UI.Msgbox("upload completed")
+	f.Intrinsic.Control.Catch
+		f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+	f.Intrinsic.Control.EndTry
+Program.Sub.SendPartsToHubspot.End
+
+Program.Sub.ErrorMsg.Start
+v.Local.sError.Declare
+v.Local.sFile.declare
+
+'Closes ODBC connection, default to connection : "con"
+'f.Intrinsic.Control.If(V.ODBC.con.exists, =, 1)
+'	f.ODBC.Connection!con.Close
+'f.Intrinsic.Control.EndIf
+
+'Closes ODBC Common Connection : "ccon"
+'f.Intrinsic.Control.If(V.ODBC.Ccon.exists, =, 1)
+'	f.ODBC.Connection!Ccon.Close
+'f.Intrinsic.Control.EndIf
+
+'Generic Error message.
+f.Intrinsic.String.Build("Project GCG_6764_CustInt.g2u {0}{0}Subroutine: {1}{0}Error: {2} with Description: {3}", v.Ambient.NewLine, v.Args.CurrentSub, v.Ambient.ErrorNumber, v.Ambient.ErrorDescription, v.Local.sError)
+
+'Build file location
+f.Intrinsic.String.Build("{0}\CUSTOM\6764\ErrorLog.txt",v.Caller.GlobalDir,v.Local.sFile)
+
+'Generate file
+f.Intrinsic.File.String2File(v.Local.sFile,v.Local.sError)
+f.Intrinsic.UI.CloseWaitDialog
+'End program
+f.Intrinsic.Control.End
+Program.Sub.ErrorMsg.End
+
+Program.Sub.Get_Data.Start
+f.Intrinsic.Control.Try
+
+v.Local.iCnt.Declare
+v.Local.i.Declare
+v.Local.stitle.Declare
+v.Local.iTotClmn.Declare
+v.Local.sSql.Declare
+V.Local.sRet.Declare
+v.Local.sadd.Declare
+v.Local.sFilter.Declare
+V.Local.iLengthArray.Declare
+
+
+
+'v.Local.sSql.Set("SELECT distinct  [Primary Associated Company ID] as CmpyID,VID as CONTID,UPPER([Company Name]) as CMPYNAME,UPPER([Street Address]) as ContStreetAddress,UPPER([city]) as ContCity,UPPER([state/region]) as ContState,[Postal Code]  as ContPostalCode,UPPER([Country/Region]) as ContCntry,UPPER([First Name]) as FirstName,UPPER([Last Name]) as LastName,Email,[Phone Number] as PhoneNumber,UPPER([Shipping Address Line 1]) as ShippingStreet,UPPER([Shipping Address Line 2]) as ShippingAddressLine2,UPPER([Shipping City]) as ShippingCity,UPPER([Shipping State]) as ShippingState,[Shipping Postal Code] as ShippingPostalCode,UPPER([Shipping Country]) as ShippingCountry,UPPER([Billing Address Line 1]) as BillingStreet,UPPER([Billing Address Line 2]) as BillingAddressLine2,UPPER([Billing City]) as BillingCity,UPPER([Billing State]) as billingstate,[Billing Postal Code] as BillingPostalCode ,UPPER([Billing Country]) as BillingCountry,[GSS Comp Num],[GSS Cust Num],[Job Title] as JobTitle FROM Contacts where [GSS Comp Num] IS NULL and [Company Name] IS NOT NULL and  [Company Name] <> '' and [Billing Address Line 1]<>''  order by CMPYNAME  ")
+
+'v.Local.sSql.Set("SELECT distinct  [Primary Associated Company ID] as CmpyID,VID as CONTID,UPPER([Company Name]) as CMPYNAME,UPPER([Street Address]) as ContStreetAddress,UPPER([city]) as ContCity,UPPER([state/region]) as ContState,[Postal Code]  as ContPostalCode,UPPER([Country/Region]) as ContCntry,UPPER([First Name]) as FirstName,UPPER([Last Name]) as LastName,Email,Companies.[Phone Number] as PhoneNumber,Contacts.[Phone Number] as PhoneNumber,UPPER([Shipping Address Line 1]) as ShippingStreet,UPPER([Shipping Address Line 2]) as ShippingAddressLine2,UPPER([Shipping City]) as ShippingCity,UPPER([Shipping State]) as ShippingState,[Shipping Postal Code] as ShippingPostalCode,UPPER([Shipping Country]) as ShippingCountry,UPPER([Billing Address Line 1]) as BillingStreet,UPPER([Billing Address Line 2]) as BillingAddressLine2,UPPER([Billing City]) as BillingCity,UPPER([Billing State]) as billingstate,[Billing Postal Code] as BillingPostalCode ,UPPER([Billing Country]) as BillingCountry,[GSS Comp Num],[GSS Cust Num],[Job Title] as JobTitle FROM Contacts where [Primary Associated Company ID] = 9446619746  order by CMPYNAME  ")
+'Function.Intrinsic.Debug.InvokeDebugger
+'Function.Intrinsic.Debug.Stop
+
+'GSS Company Number [GSS Comp Num]
+'v.Local.sSql.Set("SELECT UPPER(Companies.[Company name]) as CMPYNAME,[CompanyID] as CmpyID,VID as CONTID,UPPER(Contacts.[Street Address]) as ContStreetAddress,UPPER(Contacts.[city]) as ContCity,UPPER(Contacts.[state/region]) as ContState,Contacts.[Postal Code]  as ContPostalCode,UPPER(Contacts.[Country/Region]) as ContCntry,UPPER([First Name]) as FirstName,UPPER([Last Name]) as LastName,Email,Companies.[Phone Number] as PhoneNumbercmpy,Contacts.[Phone Number] as PhoneNumber,UPPER(Companies.[Shipping Address Line 1]) as ShippingStreet,UPPER(Companies.[Shipping Address Line 2]) as ShippingAddressLine2,UPPER(Companies.[Shipping City]) as ShippingCity,UPPER(Companies.[Shipping State]) as ShippingState,Companies.[Shipping Zip Code] as ShippingPostalCode,UPPER([Shipping Country]) as ShippingCountry,UPPER(Companies.[Billing Address Line 1]) as BillingStreet,UPPER(Companies.[Billing Address Line 2]) as BillingAddressLine2,UPPER(Companies.[Billing City]) as BillingCity,UPPER(Companies.[Billing State]) as billingstate,Companies.[Billing Postal Code] as BillingPostalCode ,UPPER(Companies.[Billing Country]) as BillingCountry,[GSS Comp Num],[GSS Cust Num],[Job Title] as JobTitle FROM Companies join Contacts on  where [CompanyID] = [Primary Associated Company ID] and [CompanyID] = 9447032484") 
+
+v.Local.sSql.Set("SELECT * FROM Companies join Contacts on  where [CompanyID] = [Primary Associated Company ID] and upper([Companies.Company name]) like '%TEST4%'") 
+
+v.Local.sSql.Set("SELECT * FROM Companies where upper([Company name]) like '%TEST4%'") 
+
+v.Local.sSql.Set("SELECT * FROM Companies where upper([Company name]) like '%TEST3%'") 
+
+'v.Local.sSql.Set("SELECT top 1 Companies.* FROM Companies join Contacts on  where [CompanyID] = [Primary Associated Company ID]") 
+
+v.Local.sSql.Set("SELECT UPPER(Companies.[Company name]) as CMPYNAME,[CompanyID] as CmpyID,VID as CONTID,UPPER(Contacts.[Street Address]) as ContStreetAddress,UPPER(Contacts.[city]) as ContCity,UPPER(Contacts.[state/region]) as ContState,Contacts.[Postal Code]  as ContPostalCode,UPPER(Contacts.[Country/Region]) as ContCntry,UPPER([First Name]) as FirstName,UPPER([Last Name]) as LastName,Email,Companies.[Phone Number] as PhoneNumbercmpy,Contacts.[Phone Number] as PhoneNumber,UPPER(Companies.[Shipping Address Line 1]) as ShippingStreet,UPPER(Companies.[Shipping Address Line 2]) as ShippingAddressLine2,UPPER(Companies.[Shipping City]) as ShippingCity,UPPER(Companies.[Shipping State]) as ShippingState,Companies.[Shipping Zip Code] as ShippingPostalCode,UPPER([Shipping Country]) as ShippingCountry,UPPER(Companies.[Billing Address Line 1]) as BillingStreet,UPPER(Companies.[Billing Address Line 2]) as BillingAddressLine2,UPPER(Companies.[Billing City]) as BillingCity,UPPER(Companies.[Billing State]) as billingstate,Companies.[Billing Postal Code] as BillingPostalCode ,UPPER(Companies.[Billing Country]) as BillingCountry,[GSS Comp Num] as GSS_COMPANYCONT,[GSS Company Number] as GSS_COMPANY,[Job Title] as JobTitle FROM Companies join Contacts on  where [CompanyID] = [Primary Associated Company ID] and ([GSS Comp Num] IS NULL or [GSS Company Number] IS NULL) and Companies.[Company name] IS NOT NULL and  Companies.[Company name] <> '' and Companies.[Billing Address Line 1] <>'' ") 
+
+Function.Automation.HubSpot.SelectToDatatable("DTCust","True",v.Local.sSql)
+
+	
+V.Local.ssql.Set(V.DataTable.DTCust.FieldNames)
+f.Data.Datatable.AddColumn("DTCust","CUSTNO","string")
+
+F.Data.DataView.Create("DTCust","dvHS")
+f.Intrinsic.String.Build("BillingStreet<>'' and CmpyID <>0 and (GSS_COMPANY IS NULL or GSS_COMPANY = '') ","",v.Local.sFilter)
+F.Data.DataView.SetFilter("DTCust","dvHS",v.Local.sFilter)
+f.Intrinsic.Control.If(v.DataView.DTCust!dvHS.RowCount,>,0)
+	f.Intrinsic.Control.CallSub(Find_NextCustomer)
+	
+	f.Data.Dataview.ToDataTableDistinct("DTCust","dvHS","DTCustNo","CmpyID")
+	f.Data.Datatable.AddColumn("DTCustNo","CUSTNO","string")
+	F.Data.DataTable.SetSeries("DTCustNo","CUSTNO",v.Global.lNextCust,1)
+
+	F.Data.Dictionary.CreateFromDataTable("dtXdic","DTCustNo","CmpyID","CUSTNO")
+	f.Data.Dictionary.SetDefaultReturn("dtXdic","0")
+	f.Data.DataTable.FillFromDictionary("DTCust","dtXdic","CmpyID","CUSTNO")
+	f.Data.Dictionary.Close("dtXdic")
+		
+	f.Data.Datatable.Close("DTCustNo")
+	
+	v.local.sRet.Set("CmpyID*!*CUSTNO*!*CMPYNAME*!*BillingStreet*!*BillingCity*!*billingstate*!*BillingPostalCode*!*BillingCountry*!*ShippingStreet*!*ShippingCity*!*ShippingState*!*ShippingPostalCode*!*ShippingCountry*!*PhoneNumber*!*PhoneNumbercmpy")
+	
+	'f.Data.DataView.SetSort("dtHS","DVCSR","CMPYNAME asc")
+	f.Data.Dataview.ToDataTableDistinct("DTCust","dvHS","DTCompany",v.local.sRet,"true")
+	F.Data.DataView.Create("DTCompany","dvHS")
+
+	f.Data.Datatable.SetValueFormat("DTCompany",-1,"CUSTNO","CUSTNO","000000")
+	f.Intrinsic.Control.If(v.DataView.DTCompany!dvHS.RowCount,>,0)
+	
+	v.Local.scmpy.Declare
+	v.Local.scont.Declare
+	V.Local.sLen.Declare
+	V.Local.sElements1.declare
+	v.Local.sfiller.Declare
+	V.Local.sFile.Declare
+	V.Local.bEx.Declare
+	V.Local.sTemp.Declare
+	
+	
+	V.Local.sLen.set("6*!*30*!*60*!*15*!*2*!*13*!*24*!*30*!*3*!*7*!*42*!*4*!*98*!*12*!*64*!*33*!*49*!*30*!*60*!*15*!*2*!*13*!*54*!*14*!*1*!*13*!*17*!*705*!*39*!*255")
+	
+	f.Intrinsic.Control.for(v.Local.i,0,v.DataView.DTCompany!dvHS.RowCount--,1)
+	
+	'CmpyID,CONTID,CMPYNAME,ContStreetAddress,ContCity,ContState,
+	'ContCntry,FirstName,LastName,Email,PhoneNumber,ShippingStreet,ShippingAddressLine2,
+	'ShippingCity,ShippingState,ShippingPostalCode,ShippingCountry,BillingStreet,
+	'BillingAddressLine2,BillingCity,billingstate,BillingCountry,[GSS Comp Num],[GSS Cust Num]
+	
+		f.Intrinsic.String.Build("{1}*!*{2}*!*{3}*!*{4}*!*{5}*!*{13}*!*{6}*!*{0}*!*{0}*!*{0}*!*{14}*!*{0}*!*{0}*!*{0}*!*{0}*!*{0}*!*{0}*!*{7}*!*{8}*!*{9}*!*{10}*!*{11}*!*{12}*!*{0}*!*{0}*!*{0}*!*{0}*!*{0}*!*{0}*!*{0}",v.Local.sfiller,v.DataView.DTCompany!dvHS(v.Local.i).CUSTNO!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).CMPYNAME!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).BillingStreet!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).BillingCity!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).billingstate!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).BillingCountry!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).CMPYNAME!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).ShippingStreet!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).ShippingCity!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).ShippingState!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).ShippingPostalCode!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).ShippingCountry!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).BillingPostalCode!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).PhoneNumbercmpy!FIELDVAL,V.Local.sTemp)
+	
+		F.Intrinsic.String.Split(V.Local.sLen,"*!*",V.Local.iLengthArray)
+		F.Intrinsic.String.Split(V.Local.sTemp,"*!*",V.Local.sTemp)
+		F.Intrinsic.String.PositionalString(V.Local.sTemp,V.Local.iLengthArray,V.Local.sRet)
+		f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sFullString,V.Local.sRet,V.Ambient.NewLine,V.Local.sFullString)
+		
+	f.Intrinsic.Control.Next(v.Local.i)
+	
+	
+	F.Intrinsic.Control.If(V.Local.sFullString.Trim,<>,"")
+		F.Intrinsic.String.Build("{0}\CUSTOMER.TXT",V.Caller.FilesDir,V.Local.sFile)
+		
+		F.Intrinsic.File.Exists(V.Local.sFile,V.Local.bEx)
+		Function.Intrinsic.Control.If(V.Local.bEx,=,True)
+			F.Intrinsic.File.DeleteFile(V.Local.sFile)
+		Function.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sFullString)
+'		'1 new , 2 delete , 3 update
+		Function.Global.General.CallWrapperSync(6013,1)
+		f.Intrinsic.Control.CallSub(Update_Hubspot)
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.EndIf	
+Function.Intrinsic.Control.EndIf
+
+	v.local.sRet.Set("CUSTNO*!*CmpyID*!*CONTID*!*CMPYNAME*!*ContStreetAddress*!*ContCity*!*ContState*!*ContCntry*!*FirstName*!*LastName*!*Email*!*PhoneNumber*!*ContPostalCode*!*JobTitle*!*GSS_COMPANY")
+	
+	v.Local.sContact_Name.Declare
+	V.Local.sParams.Declare
+	V.Local.sFullString.Declare
+	v.Local.sPostalCode.Declare
+	v.Local.sJobTitle.Declare
+	
+	V.Local.sFullString.Set("")
+	
+	Function.Intrinsic.Debug.Stop
+	
+	f.Intrinsic.String.Build("CmpyID <>0 and GSS_COMPANYCONT IS NULL and (GSS_COMPANY <> '1' or GSS_COMPANY IS NULL or GSS_COMPANY = '') ","",v.Local.sFilter)
+'	f.Intrinsic.String.Build("CmpyID <>0 and GSS_COMPANYCONT IS NULL ","",v.Local.sFilter)
+	F.Data.DataView.SetFilter("DTCust","dvHS",v.Local.sFilter)
+	f.Intrinsic.Control.If(v.DataView.DTCust!dvHS.RowCount,>,0)
+	f.Data.Dataview.ToDataTableDistinct("DTCust","dvHS","DTCont",v.local.sRet,"true")
+	F.Data.DataView.Create("DTCont","dvHS")
+	
+	F.Intrinsic.Control.If(V.DataTable.DTCompany.Exists)
+		F.Data.Dictionary.CreateFromDataTable("dtXdic","DTCompany","CmpyID","CUSTNO")
+		f.Data.Dictionary.SetDefaultReturn("dtXdic","0")
+		f.Data.DataTable.FillFromDictionary("DTCont","dtXdic","CmpyID","CUSTNO")
+		f.Data.Dictionary.Close("dtXdic")
+		F.Data.DataView.close("DTCompany","dvHS")
+		f.Data.Datatable.Close("DTCompany")
+	f.Intrinsic.Control.EndIf
+	
+'	F.Data.DataTable.AddExpressionColumn("DTBLANKET", "POREMQty1", "Long", "ISNull(RelQty,0)")
+	Function.Intrinsic.Debug.Stop
+	
+	F.Data.DataTable.AddExpressionColumn("DTCont", "ContCmpy", "string","ISNull(CUSTNO,GSS_COMPANY)")
+	F.Data.DataTable.AddExpressionColumn("DTCont", "ContCmpyfinal", "string","Iif(ContCmpy = 0,ISNull(GSS_COMPANY,ContCmpy),ContCmpy)")
+	f.Intrinsic.Control.If(v.DataView.DTCont!dvHS.RowCount,>,0)
+	
+		V.Local.sLen.set("6*!*1*!*30*!*3*!*26*!*68*!*26*!*25*!*101*!*50*!*50*!*15*!*10*!*185*!*1*!*201*!*592*!*30*!*30*!*330*!*31")
+	
+		f.Intrinsic.Control.for(v.Local.i,0,v.DataView.DTCont!dvHS.RowCount--,1)
+			f.Intrinsic.String.Build("{0} {1}",v.DataView.DTCont!dvHS(v.Local.i).FirstName!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).LastName!FIELDVAL,v.Local.sContact_Name)
+			
+			f.Intrinsic.String.Build("{0}*!*C*!*{1}*!* *!*{2}*!*{3}*!*{4}*!* *!*{5}*!*{6}*!*{7}*!*{8}*!*{9}*!*{10}*!* *!* *!*{11}*!* *!* *!* *!*{12}",v.DataView.DTCont!dvHS(v.Local.i).ContCmpyfinal!FIELDVAL,v.Local.sContact_Name,v.DataView.DTCont!dvHS(v.Local.i).FirstName!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).LastName!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).PhoneNumber!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).Email!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).ContStreetAddress!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).ContCntry!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).ContCity!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).ContState!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).ContPostalCode!FIELDVAL,v.DataView.DTCont!dvHS(v.Local.i).JobTitle!FIELDVAL,"",V.Local.sTemp)
+			F.Intrinsic.String.Split(V.Local.sLen,"*!*",V.Local.iLengthArray)
+			F.Intrinsic.String.Split(V.Local.sTemp,"*!*",V.Local.sTemp)
+			F.Intrinsic.String.PositionalString(V.Local.sTemp,V.Local.iLengthArray,V.Local.sRet)
+			f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sFullString,V.Local.sRet,V.Ambient.NewLine,V.Local.sFullString)
+						
+		f.Intrinsic.Control.Next(v.Local.i)	
+		
+		F.Intrinsic.Control.If(V.Local.sFullString.Trim,<>,"")
+	
+			F.Intrinsic.String.Build("{0}\CONTACT.TXT",V.Caller.FilesDir,V.Local.sFile)
+			
+			F.Intrinsic.File.Exists(V.Local.sFile,V.Local.bEx)
+			Function.Intrinsic.Control.If(V.Local.bEx,=,True)
+				F.Intrinsic.File.DeleteFile(V.Local.sFile)
+			Function.Intrinsic.Control.EndIf
+			
+			Function.Intrinsic.Debug.Stop
+			
+			F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sFullString)
+			F.Intrinsic.String.Build("{0}!*!UPLCNTCT/U",V.Caller.CompanyCode,V.Local.sParams)
+			Function.Global.General.CallWrapperSync(51,V.Local.sParams)
+			f.Intrinsic.Control.CallSub(Update_HubspotCont)
+		Function.Intrinsic.Control.EndIf
+	Function.Intrinsic.Control.EndIf
+	F.Data.DataView.close("DTCont","dvHS")
+	f.Data.Datatable.Close("DTCont")
+f.Intrinsic.Control.endif
+
+
+	
+	Function.Intrinsic.Debug.Stop
+	
+	
+'		gui.frmcmpy.GsGrid.AddGridViewFromDataView("GridView","DTCust","dvHS")
+'	
+'		gui.frmcmpy.GsGrid.GetColumnCount("GridView",v.Local.iTotClmn)
+'		f.Intrinsic.Math.Sub(v.Local.iTotClmn,1,v.Local.iTotClmn)
+'		f.Intrinsic.Control.For(v.Local.i,0,v.Local.iTotClmn,1)
+'			gui.frmcmpy.GsGrid.GetColumnNamebyIndex("GridView",v.Local.i,v.Local.stitle)
+'			gui.frmcmpy.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"AllowEdit",False)
+'			gui.frmcmpy.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"ReadOnly",True)
+'		
+'			gui.frmcmpy.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderFontBold","True")
+'			gui.frmcmpy.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderBackColor","LIGHTBLUE")
+'			gui.frmcmpy.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderHAlignment","Center")
+'			gui.frmcmpy.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderWordWrap","wrap")
+'		
+'		f.Intrinsic.Control.Next(v.Local.i)
+'	
+'		
+'		
+'		gui.frmcmpy.GsGrid.SetGridViewProperty("GridView", "ColumnPanelRowHeight", "40")
+'	
+'		
+'	'	gui.frmcmpy.GsGrid.SetGridViewProperty("GridView","OptionsViewShowAutoFilterRow",True)
+'	
+'		gui.frmcmpy.GsGrid.SetGridViewProperty("GridView", "OptionsSelectionEnableAppearanceFocusedRow", "True") 
+'		gui.frmcmpy.GsGrid.SetGridViewProperty("GridView","OptionsViewColumnAutoWidth",False)
+'		
+'		gui.frmcmpy.GsGrid.ResumeLayout
+'		gui.frmcmpy.GsGrid.MainView("GridView")
+		
+	
+
+F.Data.DataView.close("DTCust","dvHS")
+f.Data.Datatable.Close("DTCust")
+f.ODBC.Connection!con.Close
+f.Intrinsic.Control.end
+F.Intrinsic.UI.CloseWaitDialog
+
+f.Intrinsic.Control.Catch
+	f.Intrinsic.UI.Msgbox(v.Ambient.ErrorDescription)
+'	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry
+Program.Sub.Get_Data.End
+
+Program.Sub.frmcmpy_UnLoad.Start
+
+f.Intrinsic.Control.If(v.ODBC.con.State,=,1)
+	f.ODBC.Connection!con.Close
+f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.end
+Program.Sub.frmcmpy_UnLoad.End
+
+Program.Sub.Find_NextCustomer.Start
+
+f.Intrinsic.Control.Try
+f.Data.DataTable.CreateFromSQL("DTData","CON","SELECT customer FROM v_customer_master WHERE Isnumeric(customer) = 1")
+f.Data.DataTable.AddExpressionColumn("DTData","Cust","long","Convert([customer],'System.Int32')")
+
+Function.Data.DataTable.AddExpressionColumn("DTData", "NxtCust", "long", "max(Cust)+1")
+
+v.Global.lNextCust.Set(V.DataTable.DTData(0).NxtCust!FieldVal)
+
+f.Data.Datatable.Close("DTData")
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+	f.Intrinsic.Control.EndTry
+	
+Program.Sub.Find_NextCustomer.End
+
+Program.Sub.Update_GSSNO.Start
+f.Intrinsic.Control.Try
+
+v.Local.iCnt.Declare
+v.Local.sSQL.Declare
+v.Local.spart.Declare
+v.Local.sFilter.Declare
+v.Local.sVal.Declare
+
+Function.Intrinsic.Debug.InvokeDebugger
+
+Function.Intrinsic.Debug.Stop
+
+
+f.Intrinsic.String.Build("update Companies set [GSS Company Number]='1' where [GSS Company Number] IS NULL","1","1",v.Local.sSQL)
+'f.Intrinsic.String.Build("update Contacts set [GSS Comp Num]='1' where [GSS Comp Num] IS NULL","1","1",v.Local.sSQL)
+f.Automation.hubspot.ExecuteSQL(v.Local.sSQL)
+f.Intrinsic.Control.end
+
+'==============
+
+
+f.Intrinsic.String.Build("select upper(rtrim(name_customer)) as name_customer, customer from v_CUSTOMER_MASTER where name_customer <> ''","",v.Local.sSQL)
+	f.Data.DataTable.CreateFromSQL("dtParts","con",v.Local.sSQL)
+	
+'	'Check if part exists in Hubspot.  Determines if we run an insert or update.
+'Function.Automation.HubSpot.SelectToDatatable("dtHS","True","select upper(rtrim([Company Name])) as CMPYNAME,[Primary Associated Company ID] as CmpyID,[GSS Comp Num],[First Name],[Last Name] from Contacts where [Company Name] IS NOT NULL and  [Company Name] <> '' ")
+
+
+v.Local.sSql.Set("SELECT top 1 Contacts.* FROM Contacts ")
+Function.Automation.HubSpot.SelectToDatatable("DTCust","True",v.Local.sSql)
+V.Local.ssql.Set(V.DataTable.DTCust.FieldNames)
+	'Function.Automation.HubSpot.SelectToDatatable("dtHS","True","select upper(rtrim([Company Name])) as CMPYNAME,[Primary Associated Company ID] as CmpyID,[GSS Comp Num] from Contacts where [GSS Comp Num] IS NULL and [Company Name] IS NOT NULL and  [Company Name] <> '' ")
+	'Function.Automation.HubSpot.SelectToDatatable("dtHS","True","select upper(rtrim([Company Name])) as CMPYNAME,[Primary Associated Company ID] as CmpyID,[GSS Comp Num] from Contacts where [Company Name] IS NOT NULL and  [Company Name] <> '' ")
+
+	f.Data.DataView.Create("dtHS","dvHS",22)
+			
+	'CONNOR
+	'Loop through dtParts and see if each part exists in Hubspot already.  Insert or update from there.
+	f.Intrinsic.Control.If(v.DataView.dtHS!dvHS.RowCount,>,0)
+		f.Intrinsic.Control.For(v.Local.iCnt,0,v.DataTable.dtParts.RowCount--,1)
+			v.Local.spart.Set(v.DataTable.dtParts(v.Local.iCnt).name_customer!FieldVal)
+			F.Intrinsic.String.Replace(v.Local.spart,"'","''",v.Local.spart)
+			f.Intrinsic.String.Build("CMPYNAME='{0}'",v.Local.spart,v.Local.sFilter)
+			f.Data.DataView.SetFilter("dtHS","dvHS",v.Local.sFilter)
+			f.Intrinsic.Control.If(v.DataView.dths!dvHS.RowCount,>,0)
+'					Function.Intrinsic.Debug.Stop
+				v.Local.sVal.Set(v.DataView.dtHS!dvHS(0).CmpyID!FIELDVAL)
+				f.Intrinsic.Control.If(v.Local.sVal,<>,"")
+					f.Intrinsic.String.Build("update Contacts set [GSS Comp Num]='{0}' where [Primary Associated Company ID] ={1}",v.DataTable.dtParts(v.Local.iCnt).customer!FieldVal,v.DataView.dtHS!dvHS(0).CmpyID!FIELDVAL,v.Local.sSQL)
+					f.Automation.hubspot.ExecuteSQL(v.Local.sSQL)
+				f.Intrinsic.Control.EndIf	
+			f.Intrinsic.Control.EndIf	
+		f.Intrinsic.Control.Next(v.Local.iCnt)
+	f.Intrinsic.Control.EndIf	
+	Function.Intrinsic.Debug.Stop
+	
+	F.Data.DataView.close("dtHS","dvHS")
+	f.Data.Datatable.Close("dtParts")
+
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry		
+Program.Sub.Update_GSSNO.End
+
+Program.Sub.Update_Hubspot.Start
+f.Intrinsic.Control.Try
+
+v.Local.i.Declare
+v.Local.sSQL.Declare
+'Function.Intrinsic.Debug.Stop
+
+f.Intrinsic.Control.If(v.DataView.DTCompany!dvHS.RowCount,>,0)
+	f.Intrinsic.Control.for(v.Local.i,0,v.DataView.DTCompany!dvHS.RowCount--,1)
+		f.Intrinsic.String.Build("update Companies set  [GSS Company Number]='{0}' where CompanyID ={1}",v.DataView.DTCompany!dvHS(v.Local.i).CUSTNO!FIELDVAL,v.DataView.DTCompany!dvHS(v.Local.i).CmpyID!FIELDVAL,v.Local.sSQL)
+		f.Automation.hubspot.ExecuteSQL(v.Local.sSQL)
+	f.Intrinsic.Control.Next(v.Local.i)
+f.Intrinsic.Control.EndIf	
+
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry		
+Program.Sub.Update_Hubspot.End
+
+Program.Sub.Update_HubspotCont.Start
+f.Intrinsic.Control.Try
+
+v.Local.i.Declare
+v.Local.sSQL.Declare
+
+f.Data.Dataview.ToDataTableDistinct("DTCont","dvHS","DTContUPD","ContCmpy*!*CmpyID")
+f.Intrinsic.Control.If(v.DataTable.DTContUPD.RowCount,>,0)
+	f.Intrinsic.Control.for(v.Local.i,0,v.DataTable.DTContUPD.RowCount--,1)
+		f.Intrinsic.String.Build("update Contacts set [GSS Comp Num]='{0}' where [Primary Associated Company ID] ={1}",v.DataTable.DTContUPD(v.Local.i).ContCmpy!FIELDVAL,v.DataTable.DTContUPD(v.Local.i).CmpyID!FIELDVAL,v.Local.sSQL)
+		f.Automation.hubspot.ExecuteSQL(v.Local.sSQL)
+	f.Intrinsic.Control.Next(v.Local.i)
+f.Intrinsic.Control.EndIf	
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+f.Intrinsic.Control.EndTry	
+Program.Sub.Update_HubspotCont.End
+
+Program.Sub.Comments.Start
+${$5$}$20.1.8245.25619$}$1
+${$6$}$rnair$}$20220826152344171$}$JUGEdtlNdgRUPvge2DQ26cJ2Nib0UUk8q+gCDGyi1ip3mzqON2baLRajB3X/gg/LTWSuGf3V/Sg=
+Program.Sub.Comments.End
